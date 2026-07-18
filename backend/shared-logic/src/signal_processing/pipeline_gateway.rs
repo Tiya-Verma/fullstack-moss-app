@@ -98,36 +98,46 @@ fn build_python_pipeline_dict<'py>(
 ) -> Result<&'py PyDict, String> {
     let nodes_list = PyList::empty(py);
 
+    // ✅ Step 4: Configurable Quality Check Node
+    if config.apply_quality_check {
+        let quality_config = PyDict::new(py);
+        quality_config.set_item("sfreq", config.sfreq)
+            .map_err(|e| format!("Failed to set sfreq: {}", e))?;
+
+        let node_dict = PyDict::new(py);
+        node_dict.set_item("type", "signal quality check")
+            .map_err(|e| format!("Failed to set node type: {}", e))?;
+        node_dict.set_item("config", quality_config)
+            .map_err(|e| format!("Failed to set node config: {}", e))?;
+
+        nodes_list.append(node_dict)
+            .map_err(|e| format!("Failed to append quality check node: {}", e))?;
+    }
+
+    // Existing bandpass filter configuration...
     if config.apply_bandpass {
         let bandpass_config = PyDict::new(py);
-        bandpass_config
-            .set_item("method", if config.use_iir { "IIR" } else { "FIR" })
+        bandpass_config.set_item("method", if config.use_iir { "IIR" } else { "FIR" })
             .map_err(|e| format!("Failed to set method: {}", e))?;
-        bandpass_config
-            .set_item("Filter", config.h_freq.unwrap_or(50.0))
+        bandpass_config.set_item("Filter", config.h_freq.unwrap_or(50.0))
             .map_err(|e| format!("Failed to set Filter: {}", e))?;
-        bandpass_config
-            .set_item("low_cut_hz", config.l_freq.unwrap_or(1.0))
+        bandpass_config.set_item("low_cut_hz", config.l_freq.unwrap_or(1.0))
             .map_err(|e| format!("Failed to set low_cut_hz: {}", e))?;
-        bandpass_config
-            .set_item("src_fs", config.sfreq)
+        bandpass_config.set_item("src_fs", config.sfreq)
             .map_err(|e| format!("Failed to set src_fs: {}", e))?;
 
         let node_dict = PyDict::new(py);
-        node_dict
-            .set_item("type", "bandpass filter")
+        node_dict.set_item("type", "bandpass filter")
             .map_err(|e| format!("Failed to set node type: {}", e))?;
-        node_dict
-            .set_item("config", bandpass_config)
+        node_dict.set_item("config", bandpass_config)
             .map_err(|e| format!("Failed to set node config: {}", e))?;
-        nodes_list
-            .append(node_dict)
+        
+        nodes_list.append(node_dict)
             .map_err(|e| format!("Failed to append bandpass node: {}", e))?;
     }
 
     let pipeline_dict = PyDict::new(py);
-    pipeline_dict
-        .set_item("nodes", nodes_list)
+    pipeline_dict.set_item("nodes", nodes_list)
         .map_err(|e| format!("Failed to set nodes: {}", e))?;
 
     Ok(pipeline_dict)

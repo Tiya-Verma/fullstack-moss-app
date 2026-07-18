@@ -323,3 +323,76 @@ class signalProcessing:
             laplacian_data[ch, :] = data[ch, :] - avg_neighbour_signal
 
         return laplacian_data
+    @staticmethod
+    def check_eeg_quality_moss(data, sfreq=250.0):
+        """
+        Evaluates raw EEG signal quality.
+        
+        Parameters
+        ----------
+        data : NumPy array of shape (n_samples, n_channels)
+            MOSS-formatted data incoming from pipeline_gateway (samples first).
+        sfreq : float
+            Sampling rate of data in Hz (default 250.0 Hz).
+            
+        Returns
+        -------
+        quality_report : dict
+            Mapping of channel names to status strings ("PASS" or "FAIL: ...").
+        """
+        import numpy as np
+        from scipy.signal import welch
+
+        data = np.asarray(data, dtype=np.float64)
+        n_samples, n_channels = data.shape
+        
+        # MOSS drops names and uses a raw list-of-lists matrix, so we mock names
+        eeg_channels = [f"EXG Channel {i}" for i in range(n_channels)]
+        quality_report = {}
+
+        print("--- Starting EEG Signal Quality Check ---")
+
+        for idx, ch in enumerate(eeg_channels):
+            # Extract column idx (since shape is samples-first)
+            raw_column = data[:, idx]
+            signal = raw_column[~np.isnan(raw_column)]  # Safely drop NaNs
+            flags = []
+
+            # 1. Missing Data Check
+            if len(signal) == 0:
+                quality_report[ch] = "FAIL: Completely empty or NaN"
+                continue
+
+            # Mean-center signal to remove massive DC offsets
+            dc_removed_signal = signal - np.mean(signal)
+
+            # 2. Flatline Check
+            if np.var(dc_removed_signal) < 0.1:
+                flags.append("Flatline detected (Check electrode contact)")
+
+            # 3. Amplitude Clipping/Railing Check
+            if np.max(np.abs(dc_removed_signal)) > 50000:
+                flags.append("Railing detected (Extreme amplitude)")
+
+            # 4. 60Hz Line Noise Check
+            if len(dc_removed_signal) >= 10:
+                freqs, psd = welch(dc_removed_signal, fs=sfreq, nperseg=min(len(dc_removed_signal), 1024))
+                idx_60hz = np.argmin(np.abs(freqs - 60.0))
+                power_60hz = psd[idx_60hz]
+                total_power = np.sum(psd)
+                if total_power > 0 and (power_60hz / total_power) > 0.4:
+                    flags.append("Severe 60Hz Line Noise (Poor electrode skin contact)")
+
+            # Compile report for the channel
+            if not flags:
+                quality_report[ch] = "PASS"
+            else:
+                quality_report[ch] = "FAIL: " + " | ".join(flags)
+
+        # Print the final report to Python console
+        print(f"{'Channel':<15} | {'Status'}")
+        print("-" * 50)
+        for ch, status in quality_report.items():
+            print(f"{ch:<15} | {status}")
+
+        return quality_report

@@ -210,6 +210,7 @@ async def run_ml(data, config):
 
 # function map must be defined after wrappers so function names already exist
 FUNCTION_MAP = {
+    "signal quality check": signal_quality_check,
     "bandpass filter": bandpass_filter,
     "ml": run_ml,
 }
@@ -288,3 +289,27 @@ if __name__ == "__main__":
     output = asyncio.run(run_pipeline(test_pipeline, sample_eeg))
     print(f"Pipeline output keys: {list(output.keys())}")
     print(f"Preprocessed segment count: {len(output['processed_eeg'])}")
+
+import asyncio
+
+async def signal_quality_check(data, config):
+    """
+    Pipeline node wrapper for signal quality check.
+    Runs the check in a background thread to prevent GIL-blocking.
+    """
+    sfreq = config.get("sfreq", 250.0)
+    
+    # Run CPU-bound scientific math safely on a background thread
+    report = await asyncio.to_thread(
+        signalProcessing.check_eeg_quality_moss,
+        data,
+        sfreq
+    )
+    
+    # Log any warnings to the backend stdout/terminal for real-time debugging
+    for ch, status in report.items():
+        if "FAIL" in status:
+            print(f"[WARNING] Quality check failed on {ch}: {status}")
+            
+    # Forward the unchanged data downstream to the next nodes (like bandpass or ML)
+    return data
