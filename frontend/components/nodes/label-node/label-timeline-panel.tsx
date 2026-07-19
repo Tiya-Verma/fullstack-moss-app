@@ -11,6 +11,12 @@ import {
     XAxis,
     YAxis,
 } from 'recharts';
+import {
+    CHANNEL_COLORS,
+    CHANNEL_INDICES,
+    CHANNEL_LABELS,
+    CHANNEL_TYPES,
+} from '@/lib/channels';
 
 export type TimelineRowSource = 'Trigger' | 'Manual' | 'Auto';
 
@@ -27,10 +33,7 @@ export interface TimelineLabelRow {
 export interface LabelGraphPoint {
     id: string;
     time: string;
-    signal1: number;
-    signal2: number;
-    signal3: number;
-    signal4: number;
+    channels: number[]; // length = NUM_CHANNELS
 }
 
 export interface LabelTimelinePanelProps {
@@ -290,8 +293,7 @@ export default function LabelTimelinePanel({
         return groups;
     }, [packedEntries]);
 
-    const [highlightedSignal, setHighlightedSignal] = React.useState<
-        'signal1' | 'signal2' | 'signal3' | 'signal4'>('signal1');
+    const [highlightedChannel, setHighlightedChannel] = React.useState<number>(0);
     const [selectedGraphEventId, setSelectedGraphEventId] = React.useState<
         string | null
     >(null);
@@ -301,21 +303,15 @@ export default function LabelTimelinePanel({
     const [fetchedFocusData, setFetchedFocusData] = React.useState<LabelGraphPoint[] | null>(null);
     const [isFetchingData, setIsFetchingData] = React.useState(false);
 
-    const signalConfigs: Array<{
-        key: 'signal1' | 'signal2' | 'signal3' | 'signal4';
-        label: string;
-        color: string;
-    }> = [
-        { key: 'signal1', label: 'Channel 1', color: '#0000ff' },
-        { key: 'signal2', label: 'Channel 2', color: '#00ff00' },
-        { key: 'signal3', label: 'Channel 3',  color: '#FF00D0' },
-        { key: 'signal4', label: 'Channel 4',  color: '#FF0000' },
-    ];
+    const signalConfigs = CHANNEL_INDICES.map((i) => ({
+        index: i,
+        label: CHANNEL_LABELS[i],
+        color: CHANNEL_COLORS[i],
+        type: CHANNEL_TYPES[i],
+    }));
 
-    const toggleSignal = (
-        signalKey: 'signal1' | 'signal2' | 'signal3' | 'signal4'
-    ) => {
-        setHighlightedSignal(signalKey);
+    const toggleSignal = (channelIndex: number) => {
+        setHighlightedChannel(channelIndex);
     };
 
     // beginning of new, not sure if this works
@@ -584,22 +580,23 @@ export default function LabelTimelinePanel({
                                             strokeOpacity={0.3}
                                         />
                                     )}
-                                    {[...signalConfigs.filter((s) => s.key !== highlightedSignal),
-                                      ...signalConfigs.filter((s) => s.key === highlightedSignal),
+                                    {[...signalConfigs.filter((s) => s.index !== highlightedChannel),
+                                      ...signalConfigs.filter((s) => s.index === highlightedChannel),
                                     ].map((signal) => (
                                         <Line
-                                            key={signal.key}
-                                            dataKey={signal.key}
+                                            key={signal.index}
+                                            dataKey={(row: { channels: number[] }) => row.channels?.[signal.index]}
+                                            name={signal.label}
                                             type="monotone"
                                             isAnimationActive={false}
                                             dot={false}
                                             stroke={
-                                                highlightedSignal === signal.key
+                                                highlightedChannel === signal.index
                                                     ? signal.color
                                                     : '#C0C0C0'
                                             }
                                             strokeWidth={
-                                                highlightedSignal === signal.key
+                                                highlightedChannel === signal.index
                                                     ? 2
                                                     : 1
                                             }
@@ -614,28 +611,37 @@ export default function LabelTimelinePanel({
                                 <h4 className="mb-2 text-sm font-semibold text-black">
                                     Highlight
                                 </h4>
-                                <div className="space-y-2">
-                                    {signalConfigs.map((signal) => (
-                                        <button
-                                            key={signal.key}
-                                            className="nodrag nopan flex items-center gap-2 text-sm text-black"
-                                            onClick={() => toggleSignal(signal.key)}
-                                        >
-                                            <span
-                                                className="h-3.5 w-3.5 rounded-sm flex items-center justify-center flex-shrink-0"
-                                                style={{
-                                                    backgroundColor: highlightedSignal === signal.key ? signal.color : 'transparent',
-                                                    border: highlightedSignal === signal.key ? 'none' : '1.5px solid #BFBFBF',
-                                                }}
-                                            >
-                                                {highlightedSignal === signal.key && (
-                                                    <svg width="8" height="7" viewBox="0 0 8 7" fill="none">
-                                                        <path d="M1 3L3 5.5L7 1" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-                                                    </svg>
-                                                )}
-                                            </span>
-                                            {signal.label}
-                                        </button>
+                                <div className="space-y-3 max-h-[220px] overflow-y-auto pr-1">
+                                    {(['eeg', 'emg'] as const).map((group) => (
+                                        <div key={group}>
+                                            <div className="mb-1 text-[10px] font-semibold uppercase tracking-wider text-[#7A7A7A]">
+                                                {group}
+                                            </div>
+                                            <div className="space-y-1.5">
+                                                {signalConfigs.filter((s) => s.type === group).map((signal) => (
+                                                    <button
+                                                        key={signal.index}
+                                                        className="nodrag nopan flex items-center gap-2 text-xs text-black"
+                                                        onClick={() => toggleSignal(signal.index)}
+                                                    >
+                                                        <span
+                                                            className="h-3 w-3 rounded-sm flex items-center justify-center flex-shrink-0"
+                                                            style={{
+                                                                backgroundColor: highlightedChannel === signal.index ? signal.color : 'transparent',
+                                                                border: highlightedChannel === signal.index ? 'none' : '1.5px solid #BFBFBF',
+                                                            }}
+                                                        >
+                                                            {highlightedChannel === signal.index && (
+                                                                <svg width="8" height="7" viewBox="0 0 8 7" fill="none">
+                                                                    <path d="M1 3L3 5.5L7 1" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                                                                </svg>
+                                                            )}
+                                                        </span>
+                                                        {signal.label}
+                                                    </button>
+                                                ))}
+                                            </div>
+                                        </div>
                                     ))}
                                 </div>
                             </div>

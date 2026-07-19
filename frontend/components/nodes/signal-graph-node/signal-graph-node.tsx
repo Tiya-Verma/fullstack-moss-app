@@ -16,14 +16,12 @@ import {
 import SignalGraphView from './signal-graph-full';
 import ExportDialog from '@/components/ui/export-dialog';
 import { exportEEGData } from '@/lib/eeg-api';
+import { NUM_CHANNELS } from '@/lib/channels';
 
 interface SignalDataPoint {
     time: string;
     rawTime?: string;
-    signal1: number;
-    signal2: number;
-    signal3: number;
-    signal4: number;
+    channels: number[];
 }
 
 function formatTimestamp(raw: string): string {
@@ -43,8 +41,8 @@ function parseEEG(csvContent: string): SignalDataPoint[] {
         const timeColIdx = header.findIndex((h) => h.includes('time') || h === 'timestamp');
         if (timeColIdx == -1) return [];
 
-        // find signal columns by exact channel number patterns
-        const signalIndices = [0, 1, 2, 3].map((chNum) => {
+        // find channel columns by exact channel number patterns
+        const signalIndices = Array.from({ length: NUM_CHANNELS }, (_, chNum) => {
             const patterns = [`ch${chNum + 1}`, `channel${chNum + 1}`, `signal${chNum + 1}`, `signal_${chNum + 1}`];
             return header.findIndex((h) => patterns.includes(h));
         });
@@ -61,10 +59,7 @@ function parseEEG(csvContent: string): SignalDataPoint[] {
                 data.push({
                     time: formatTimestamp(cols[timeColIdx]),
                     rawTime: cols[timeColIdx],
-                    signal1: vals[0],
-                    signal2: vals[1],
-                    signal3: vals[2],
-                    signal4: vals[3],
+                    channels: vals,
                 });
             }
         }
