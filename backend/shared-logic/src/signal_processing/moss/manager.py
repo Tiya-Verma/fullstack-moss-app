@@ -209,11 +209,6 @@ async def run_ml(data, config):
 
 
 # function map must be defined after wrappers so function names already exist
-FUNCTION_MAP = {
-    "signal quality check": signal_quality_check,
-    "bandpass filter": bandpass_filter,
-    "ml": run_ml,
-}
 
 
 # run our pipeline by iterating through each node and applying each mapped function in sequence
@@ -261,6 +256,10 @@ async def run_pipeline(pipeline, data):
         # preprocessing nodes update the eeg data passed to later nodes
         if node_type == "bandpass filter":
             processed_eeg = result
+        elif node_type == "signal quality check":  
+            processed_eeg, quality_report = result  
+    # Store quality report in classifier_output for now  
+            classifier_output = {"quality_report": quality_report} 
         # ml node stores classification output separately
         elif node_type == "ml":
             classifier_output = result
@@ -300,10 +299,12 @@ async def signal_quality_check(data, config):
     sfreq = config.get("sfreq", 250.0)
     
     # Run CPU-bound scientific math safely on a background thread
+    from signalProcessing import check_eeg_quality_moss
+
     report = await asyncio.to_thread(
-        signalProcessing.check_eeg_quality_moss,
-        data,
-        sfreq
+        check_eeg_quality_moss, 
+        data, 
+        config.get("sfreq", 250.0)
     )
     
     # Log any warnings to the backend stdout/terminal for real-time debugging
@@ -312,4 +313,9 @@ async def signal_quality_check(data, config):
             print(f"[WARNING] Quality check failed on {ch}: {status}")
             
     # Forward the unchanged data downstream to the next nodes (like bandpass or ML)
-    return data
+    return data, report
+FUNCTION_MAP = {
+    "signal quality check": signal_quality_check,
+    "bandpass filter": bandpass_filter,
+    "ml": run_ml,
+}

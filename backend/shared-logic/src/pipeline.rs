@@ -37,6 +37,7 @@ impl Default for WindowConfig {
 #[derive(Deserialize, Serialize, Debug, Clone)]
 pub struct PreprocessingConfig {
     pub apply_bandpass: bool,
+    pub apply_quality_check: bool,
     pub use_iir: bool,
     pub l_freq: Option<f32>,
     pub h_freq: Option<f32>,
@@ -49,6 +50,7 @@ impl Default for PreprocessingConfig {
     fn default() -> Self {
         Self {
             apply_bandpass: true,
+            apply_quality_check: true,
             use_iir: false,
             l_freq: Some(1.0),
             h_freq: Some(50.0),
