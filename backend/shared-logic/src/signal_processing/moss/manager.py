@@ -2,6 +2,7 @@ import asyncio
 import os
 import sys
 import numpy as np
+from signalProcessing import check_eeg_quality_moss
 
 # manager runs a configurable pipeline using function pointers.
 # each node type maps to one wrapper function with the same interface.
@@ -208,6 +209,34 @@ async def run_ml(data, config):
     }
 
 
+async def signal_quality_check(data, config):
+    """
+    Pipeline node wrapper for signal quality check.
+    Runs the check in a background thread to prevent GIL-blocking.
+    """
+    sfreq = config.get("sfreq", 250.0)
+    
+    # Run CPU-bound scientific math safely on a background thread
+
+    report = await asyncio.to_thread(
+        check_eeg_quality_moss, 
+        data, 
+        config.get("sfreq", 250.0)
+    )
+    
+    # Log any warnings to the backend stdout/terminal for real-time debugging
+    for ch, status in report.items():
+        if "FAIL" in status:
+            print(f"[WARNING] Quality check failed on {ch}: {status}")
+            
+    # Forward the unchanged data downstream to the next nodes (like bandpass or ML)
+    return data, report
+FUNCTION_MAP = {
+    "signal quality check": signal_quality_check,
+    "bandpass filter": bandpass_filter,
+    "ml": run_ml,
+}
+
 # function map must be defined after wrappers so function names already exist
 
 
@@ -258,7 +287,7 @@ async def run_pipeline(pipeline, data):
             processed_eeg = result
         elif node_type == "signal quality check":  
             processed_eeg, quality_report = result  
-    # Store quality report in classifier_output for now  
+            # Store quality report in classifier_output for now  
             classifier_output = {"quality_report": quality_report} 
         # ml node stores classification output separately
         elif node_type == "ml":
@@ -289,33 +318,3 @@ if __name__ == "__main__":
     print(f"Pipeline output keys: {list(output.keys())}")
     print(f"Preprocessed segment count: {len(output['processed_eeg'])}")
 
-import asyncio
-
-async def signal_quality_check(data, config):
-    """
-    Pipeline node wrapper for signal quality check.
-    Runs the check in a background thread to prevent GIL-blocking.
-    """
-    sfreq = config.get("sfreq", 250.0)
-    
-    # Run CPU-bound scientific math safely on a background thread
-    from signalProcessing import check_eeg_quality_moss
-
-    report = await asyncio.to_thread(
-        check_eeg_quality_moss, 
-        data, 
-        config.get("sfreq", 250.0)
-    )
-    
-    # Log any warnings to the backend stdout/terminal for real-time debugging
-    for ch, status in report.items():
-        if "FAIL" in status:
-            print(f"[WARNING] Quality check failed on {ch}: {status}")
-            
-    # Forward the unchanged data downstream to the next nodes (like bandpass or ML)
-    return data, report
-FUNCTION_MAP = {
-    "signal quality check": signal_quality_check,
-    "bandpass filter": bandpass_filter,
-    "ml": run_ml,
-}
