@@ -75,22 +75,22 @@ impl PipelineGateway {
                 .extract()
                 .map_err(|e| format!("Failed to extract overall_label: {}", e))?;
 
-            let confidence_item = match classifier_dict.get_item("confidence") {  
-                Ok(Some(item)) => item,  
-                _ => return Ok(None),  
-            };  
-  
-            let confidence: f64 = confidence_item  
-                .extract()  
-                .map_err(|e| format!("Failed to extract confidence: {}", e))?;  
-  
-            let task_item = match classifier_dict.get_item("task") {  
-                Ok(Some(item)) => item,  
-                _ => return Ok(None),  
-            };  
-  
-            let task: String = task_item  
-                .extract()  
+            let confidence_item = match classifier_dict.get_item("confidence") {
+                Ok(Some(item)) => item,
+                _ => return Ok(None),
+            };
+
+            let confidence: f64 = confidence_item
+                .extract()
+                .map_err(|e| format!("Failed to extract confidence: {}", e))?;
+
+            let task_item = match classifier_dict.get_item("task") {
+                Ok(Some(item)) => item,
+                _ => return Ok(None),
+            };
+
+            let task: String = task_item
+                .extract()
                 .map_err(|e| format!("Failed to extract task: {}", e))?;
 
             Ok(Some(PipelineOutput {
