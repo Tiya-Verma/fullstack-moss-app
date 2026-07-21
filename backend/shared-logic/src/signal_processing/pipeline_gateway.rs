@@ -67,30 +67,26 @@ impl PipelineGateway {
 
             // Safely check if overall_label exists (ML ran). If not, return Ok(None) cleanly
             let overall_label_item = match classifier_dict.get_item("overall_label") {
-                Ok(val) => match val {
-                    Some(item) => item,
-                    None => return Ok (None)
-                },
-                Err(e) => return Ok (None)
+                Some(item) => item,
+                None => return Ok(None),
             };
 
             let overall_label: String = overall_label_item
                 .extract()
                 .map_err(|e| format!("Failed to extract overall_label: {}", e))?;
-
             let confidence_item = match classifier_dict.get_item("confidence") {
-                Ok(Some(item)) => item,
-                _ => return Ok(None),
+                Some(item) => item,
+                None => return Ok(None),
+                };
+
+            let task_item = match classifier_dict.get_item("task") {
+                Some(item) => item,
+                None => return Ok(None),
             };
 
             let confidence: f64 = confidence_item
                 .extract()
                 .map_err(|e| format!("Failed to extract confidence: {}", e))?;
-
-            let task_item = match classifier_dict.get_item("task") {
-                Ok(Some(item)) => item,
-                _ => return Ok(None),
-            };
 
             let task: String = task_item
                 .extract()
