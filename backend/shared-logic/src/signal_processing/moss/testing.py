@@ -4,13 +4,13 @@ import os
 import asyncio
 
 from manager import run_pipeline
+
 CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
 PARENT_DIR = os.path.dirname(CURRENT_DIR)
 
 for d in [CURRENT_DIR, PARENT_DIR]:
     if d not in sys.path:
         sys.path.insert(0, d)
-
 
 
 def generate_60hz_noise(n_samples, fs, amplitude=1000):
