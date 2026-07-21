@@ -77,7 +77,7 @@ impl PipelineGateway {
             let confidence_item = match classifier_dict.get_item("confidence") {
                 Some(item) => item,
                 None => return Ok(None),
-                };
+            };
 
             let task_item = match classifier_dict.get_item("task") {
                 Some(item) => item,
