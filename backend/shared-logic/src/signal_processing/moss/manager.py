@@ -209,28 +209,45 @@ async def run_ml(data, config):
     }
 
 
-async def signal_quality_check(data, config):
-    """
-    Pipeline node wrapper for signal quality check.
-    Runs the check in a background thread to prevent GIL-blocking.
-    """
-    sfreq = config.get("sfreq", 250.0)
+async def signal_quality_check(data, config):      
+    """Pipeline node wrapper for signal quality check."""      
+    sfreq = config.get("sfreq", 250.0)      
+      
+    # Handle both raw arrays and segmented lists from bandpass filter      
+    if isinstance(data, list):      
+        if len(data) > 0 and isinstance(data[0], np.ndarray):      
+            data = np.concatenate(data, axis=0)      
+      
+    if not isinstance(data, np.ndarray):      
+        raise TypeError("Quality check expects numpy array or list of segments.")      
+      
+    # Flexible shape check: accept either (n_samples, 4) or channels-first (4, n_samples)
+    if data.ndim != 2:
+        raise ValueError(f"Expected 2D array, got shape {data.shape}.")
     
-    # Run CPU-bound scientific math safely on a background thread
-
+    if data.shape[1] == 4:
+        # Standard format: (n_samples, 4) -> Transpose for processing
+        eeg_channels_first = np.asarray(data.T, dtype=np.float64)
+    elif data.shape[0] == 4:
+        # Channels-first format from bandpass segments: (4, n_samples)
+        eeg_channels_first = np.asarray(data, dtype=np.float64)
+        # Re-orient data back to (n_samples, 4) if downstream nodes expect it
+        data = data.T
+    else:
+        raise ValueError(f"Expected 4 channels in shape, got {data.shape}.")
+      
     report = await asyncio.to_thread(
         check_eeg_quality_moss, 
-        data, 
-        config.get("sfreq", 250.0)
+        eeg_channels_first, 
+        sfreq
     )
     
-    # Log any warnings to the backend stdout/terminal for real-time debugging
     for ch, status in report.items():
         if "FAIL" in status:
             print(f"[WARNING] Quality check failed on {ch}: {status}")
             
-    # Forward the unchanged data downstream to the next nodes (like bandpass or ML)
     return data, report
+
 FUNCTION_MAP = {
     "signal quality check": signal_quality_check,
     "bandpass filter": bandpass_filter,

@@ -59,22 +59,38 @@ impl PipelineGateway {
                 return Ok(None);
             }
 
-            let overall_label: String = classifier_output
-                .get_item("overall_label")
-                .map_err(|e| format!("Missing overall_label: {}", e))?
+            // Downcast classifier_output to PyDict safely
+            let classifier_dict = match classifier_output.downcast::<PyDict>() {
+                Ok(dict) => dict,
+                Err(_) => return Ok(None),
+            };
+
+            // Safely check if overall_label exists (ML ran). If not, return Ok(None) cleanly
+            let overall_label_item = match classifier_dict.get_item("overall_label") {
+                Ok(Some(item)) => item,
+                _ => return Ok(None),
+            };
+
+            let overall_label: String = overall_label_item
                 .extract()
                 .map_err(|e| format!("Failed to extract overall_label: {}", e))?;
 
-            let confidence: f64 = classifier_output
-                .get_item("confidence")
-                .map_err(|e| format!("Missing confidence: {}", e))?
-                .extract()
-                .map_err(|e| format!("Failed to extract confidence: {}", e))?;
-
-            let task: String = classifier_output
-                .get_item("task")
-                .map_err(|e| format!("Missing task: {}", e))?
-                .extract()
+            let confidence_item = match classifier_dict.get_item("confidence") {  
+                Ok(Some(item)) => item,  
+                _ => return Ok(None),  
+            };  
+  
+            let confidence: f64 = confidence_item  
+                .extract()  
+                .map_err(|e| format!("Failed to extract confidence: {}", e))?;  
+  
+            let task_item = match classifier_dict.get_item("task") {  
+                Ok(Some(item)) => item,  
+                _ => return Ok(None),  
+            };  
+  
+            let task: String = task_item  
+                .extract()  
                 .map_err(|e| format!("Failed to extract task: {}", e))?;
 
             Ok(Some(PipelineOutput {
@@ -87,65 +103,70 @@ impl PipelineGateway {
 }
 
 // Translates ProcessingConfig into the dict format manager.py expects.
-// The field names differ between Rust and Python:
-//   Rust ProcessingConfig.sfreq   → Python config "src_fs"
-//   Rust ProcessingConfig.h_freq  → Python config "Filter"
-//   Rust ProcessingConfig.l_freq  → Python config "low_cut_hz"
-//   Rust ProcessingConfig.use_iir → Python config "method" ("IIR" or "FIR")
 fn build_python_pipeline_dict<'py>(
     py: Python<'py>,
     config: &ProcessingConfig,
 ) -> Result<&'py PyDict, String> {
     let nodes_list = PyList::empty(py);
 
-    // ✅ Step 4: Configurable Quality Check Node
+    // Configurable Quality Check Node
     if config.apply_quality_check {
         let quality_config = PyDict::new(py);
-        quality_config.set_item("sfreq", config.sfreq)
+        quality_config
+            .set_item("sfreq", config.sfreq)
             .map_err(|e| format!("Failed to set sfreq: {}", e))?;
 
         let node_dict = PyDict::new(py);
-        node_dict.set_item("type", "signal quality check")
+        node_dict
+            .set_item("type", "signal quality check")
             .map_err(|e| format!("Failed to set node type: {}", e))?;
-        node_dict.set_item("config", quality_config)
+        node_dict
+            .set_item("config", quality_config)
             .map_err(|e| format!("Failed to set node config: {}", e))?;
 
-        nodes_list.append(node_dict)
+        nodes_list
+            .append(node_dict)
             .map_err(|e| format!("Failed to append quality check node: {}", e))?;
     }
 
-    // Existing bandpass filter configuration...
+    // Bandpass filter configuration
     if config.apply_bandpass {
         let bandpass_config = PyDict::new(py);
-        bandpass_config.set_item("method", if config.use_iir { "IIR" } else { "FIR" })
+        bandpass_config
+            .set_item("method", if config.use_iir { "IIR" } else { "FIR" })
             .map_err(|e| format!("Failed to set method: {}", e))?;
-        bandpass_config.set_item("Filter", config.h_freq.unwrap_or(50.0))
+        bandpass_config
+            .set_item("Filter", config.h_freq.unwrap_or(50.0))
             .map_err(|e| format!("Failed to set Filter: {}", e))?;
-        bandpass_config.set_item("low_cut_hz", config.l_freq.unwrap_or(1.0))
+        bandpass_config
+            .set_item("low_cut_hz", config.l_freq.unwrap_or(1.0))
             .map_err(|e| format!("Failed to set low_cut_hz: {}", e))?;
-        bandpass_config.set_item("src_fs", config.sfreq)
+        bandpass_config
+            .set_item("src_fs", config.sfreq)
             .map_err(|e| format!("Failed to set src_fs: {}", e))?;
 
         let node_dict = PyDict::new(py);
-        node_dict.set_item("type", "bandpass filter")
+        node_dict
+            .set_item("type", "bandpass filter")
             .map_err(|e| format!("Failed to set node type: {}", e))?;
-        node_dict.set_item("config", bandpass_config)
+        node_dict
+            .set_item("config", bandpass_config)
             .map_err(|e| format!("Failed to set node config: {}", e))?;
-        
-        nodes_list.append(node_dict)
+
+        nodes_list
+            .append(node_dict)
             .map_err(|e| format!("Failed to append bandpass node: {}", e))?;
     }
 
     let pipeline_dict = PyDict::new(py);
-    pipeline_dict.set_item("nodes", nodes_list)
+    pipeline_dict
+        .set_item("nodes", nodes_list)
         .map_err(|e| format!("Failed to set nodes: {}", e))?;
 
     Ok(pipeline_dict)
 }
 
 // Transposes EEG signals from (n_channels, n_samples) to (n_samples, n_channels).
-// Rust stores signals as Vec<Vec<f64>> shaped (4, n_samples) — channels first.
-// manager.py expects (n_samples, 4) — samples first.
 pub fn transpose_signals(signals: &[Vec<f64>]) -> Vec<Vec<f64>> {
     if signals.is_empty() || signals[0].is_empty() {
         return Vec::new();
@@ -167,8 +188,6 @@ mod tests {
 
     #[test]
     fn test_transpose_four_channels() {
-        // 4 channels, 2 samples: [[1,2],[3,4],[5,6],[7,8]]
-        // expected (n_samples, 4): [[1,3,5,7],[2,4,6,8]]
         let signals = vec![
             vec![1.0_f64, 2.0],
             vec![3.0_f64, 4.0],
