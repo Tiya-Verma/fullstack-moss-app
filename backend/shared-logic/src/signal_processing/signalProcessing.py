@@ -319,6 +319,7 @@ class signalProcessing:
 
 # --- OUTSIDE CLASS signalProcessing (TOP-LEVEL FUNCTION) ---
 
+
 def check_eeg_quality_moss(data, sfreq=250.0):
     """
     Evaluates raw EEG signal quality.
@@ -327,7 +328,11 @@ def check_eeg_quality_moss(data, sfreq=250.0):
     from scipy.signal import welch
 
     # 1. Unpack if upstream node returned a tuple/list like [eeg_array, metadata]
-    if isinstance(data, (tuple, list)) and len(data) > 0 and isinstance(data[0], np.ndarray):
+    if (
+        isinstance(data, (tuple, list))
+        and len(data) > 0
+        and isinstance(data[0], np.ndarray)
+    ):
         data = data[0]
 
     # 2. Convert lists/nested lists into a NumPy ndarray safely
@@ -338,11 +343,11 @@ def check_eeg_quality_moss(data, sfreq=250.0):
         data = np.squeeze(data, axis=0) if data.shape[0] == 1 else data[0]
 
     # 4. Transpose if shape is (channels, samples) back to (samples, channels)
-    if data.ndim == 2 and data.shape[0] < data.shape[1]: 
+    if data.ndim == 2 and data.shape[0] < data.shape[1]:
         data = data.T
 
     n_samples, n_channels = data.shape
-    
+
     # MOSS drops names and uses a raw list-of-lists matrix, so we mock names
     eeg_channels = [f"EXG Channel {i}" for i in range(n_channels)]
     quality_report = {}
@@ -372,7 +377,9 @@ def check_eeg_quality_moss(data, sfreq=250.0):
 
         # 4. 60Hz Line Noise Check
         if len(dc_removed_signal) >= 10:
-            freqs, psd = welch(dc_removed_signal, fs=sfreq, nperseg=min(len(dc_removed_signal), 1024))
+            freqs, psd = welch(
+                dc_removed_signal, fs=sfreq, nperseg=min(len(dc_removed_signal), 1024)
+            )
             idx_60hz = np.argmin(np.abs(freqs - 60.0))
             power_60hz = psd[idx_60hz]
             total_power = np.sum(psd)

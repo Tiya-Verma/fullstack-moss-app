@@ -67,8 +67,11 @@ impl PipelineGateway {
 
             // Safely check if overall_label exists (ML ran). If not, return Ok(None) cleanly
             let overall_label_item = match classifier_dict.get_item("overall_label") {
-                Ok(Some(item)) => item,
-                _ => return Ok(None),
+                Ok(val) => match val {
+                    Some(item) => item,
+                    None => return Ok (None)
+                },
+                Err(e) => return Ok (None)
             };
 
             let overall_label: String = overall_label_item
