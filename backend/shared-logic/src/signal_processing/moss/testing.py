@@ -66,7 +66,7 @@ async def test_nan_inf_values():
     raw_eeg[200:210, 1] = np.inf  # Insert Inf values
 
     try:
-        output = await run_pipeline(pipeline_config, raw_eeg)
+        await run_pipeline(pipeline_config, raw_eeg)
         print("✅ Test 3 passed - Handled NaN/Inf gracefully\n")
     except Exception as e:
         print(f"⚠️  Test 3 - NaN/Inf caused error (expected): {e}\n")
@@ -82,7 +82,7 @@ async def test_short_data():
     raw_eeg = np.random.randn(100, 4).astype(np.float32)  # Very short
 
     try:
-        output = await run_pipeline(pipeline_config, raw_eeg)
+        await run_pipeline(pipeline_config, raw_eeg)
         print("✅ Test 4 passed - Short data handled\n")
     except Exception as e:
         print(f"⚠️  Test 4 - Short data caused error: {e}\n")
@@ -97,7 +97,7 @@ async def test_quality_check_only():
 
     raw_eeg = np.random.randn(1250, 4).astype(np.float32)
 
-    output = await run_pipeline(pipeline_config, raw_eeg)
+    await run_pipeline(pipeline_config, raw_eeg)
     print("✅ Test 5 passed - Quality check standalone works\n")
 
 
@@ -111,7 +111,7 @@ async def test_wrong_shape():
     raw_eeg = np.random.randn(1250, 3).astype(np.float32)  # Wrong channel count
 
     try:
-        output = await run_pipeline(pipeline_config, raw_eeg)
+        await run_pipeline(pipeline_config, raw_eeg)
         print("⚠️  Test 6 - Should have failed with wrong shape\n")
     except Exception as e:
         print(f"✅ Test 6 passed - Correctly rejected wrong shape: {e}\n")
