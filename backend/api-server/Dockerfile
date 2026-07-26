@@ -62,7 +62,7 @@ COPY api-server/python ./api-server/python
 # Build the actual application (only this reruns on code changes)
 RUN cargo build --release --bin api-server
 
-RUN cargo install sqlx-cli --no-default-features --features postgres
+RUN cargo install sqlx-cli --version 0.8.3 --no-default-features --features postgres
 
 
 # Stage 2: Create the final minimal image

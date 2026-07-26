@@ -2,6 +2,7 @@ import asyncio
 import os
 import sys
 import numpy as np
+from signalProcessing import check_eeg_quality_moss
 
 # manager runs a configurable pipeline using function pointers.
 # each node type maps to one wrapper function with the same interface.
@@ -208,11 +209,49 @@ async def run_ml(data, config):
     }
 
 
-# function map must be defined after wrappers so function names already exist
+async def signal_quality_check(data, config):
+    """Pipeline node wrapper for signal quality check."""
+    sfreq = config.get("sfreq", 250.0)
+
+    # Handle both raw arrays and segmented lists from bandpass filter
+    if isinstance(data, list):
+        if len(data) > 0 and isinstance(data[0], np.ndarray):
+            data = np.concatenate(data, axis=0)
+
+    if not isinstance(data, np.ndarray):
+        raise TypeError("Quality check expects numpy array or list of segments.")
+
+    # Flexible shape check: accept either (n_samples, 4) or channels-first (4, n_samples)
+    if data.ndim != 2:
+        raise ValueError(f"Expected 2D array, got shape {data.shape}.")
+
+    if data.shape[1] == 4:
+        # Standard format: (n_samples, 4) -> Transpose for processing
+        eeg_channels_first = np.asarray(data.T, dtype=np.float64)
+    elif data.shape[0] == 4:
+        # Channels-first format from bandpass segments: (4, n_samples)
+        eeg_channels_first = np.asarray(data, dtype=np.float64)
+        # Re-orient data back to (n_samples, 4) if downstream nodes expect it
+        data = data.T
+    else:
+        raise ValueError(f"Expected 4 channels in shape, got {data.shape}.")
+
+    report = await asyncio.to_thread(check_eeg_quality_moss, eeg_channels_first, sfreq)
+
+    for ch, status in report.items():
+        if "FAIL" in status:
+            print(f"[WARNING] Quality check failed on {ch}: {status}")
+
+    return data, report
+
+
 FUNCTION_MAP = {
+    "signal quality check": signal_quality_check,
     "bandpass filter": bandpass_filter,
     "ml": run_ml,
 }
+
+# function map must be defined after wrappers so function names already exist
 
 
 # run our pipeline by iterating through each node and applying each mapped function in sequence
@@ -260,6 +299,10 @@ async def run_pipeline(pipeline, data):
         # preprocessing nodes update the eeg data passed to later nodes
         if node_type == "bandpass filter":
             processed_eeg = result
+        elif node_type == "signal quality check":
+            processed_eeg, quality_report = result
+            # Store quality report in classifier_output for now
+            classifier_output = {"quality_report": quality_report}
         # ml node stores classification output separately
         elif node_type == "ml":
             classifier_output = result

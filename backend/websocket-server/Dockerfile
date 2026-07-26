@@ -69,7 +69,7 @@ COPY --from=builder /app/backend/target/release/websocket-server ./websocket-ser
 
 COPY --from=builder /app/backend/shared-logic ./shared-logic
 
-RUN pip install --no-cache-dir numpy scipy mne
+RUN pip install --no-cache-dir numpy scipy mne pandas einops scikit-learn torch --index-url https://download.pytorch.org/whl/cpu
 
 ENV SIGNAL_PROCESSING_SCRIPT="/app/shared-logic/src/signal_processing/signalProcessing.py"
 
