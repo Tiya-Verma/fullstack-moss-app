@@ -15,7 +15,7 @@ pub async fn generate_mock_data(
     let stream_info = StreamInfo::new(
         "MyStream",
         "EEG",
-        NUM_CHANNELS as i32,
+        NUM_CHANNELS as u32,
         SAMPLING_RATE_HZ as f64,
         ChannelFormat::Float32,
         "muse-simulator-eeg",
