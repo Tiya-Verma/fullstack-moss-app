@@ -143,7 +143,9 @@ fn run_eeg_collection(
 
     let mut packet = EEGDataPacket {
         timestamps: Vec::with_capacity(windowing.chunk_size + 1),
-        signals: vec![Vec::with_capacity(windowing.chunk_size + 1); NUM_CHANNELS],
+        signals: (0..NUM_CHANNELS)
+            .map(|_| Vec::with_capacity(windowing.chunk_size + 1))
+            .collect::<Vec<_>>(),
         ml_result: None,
     };
 

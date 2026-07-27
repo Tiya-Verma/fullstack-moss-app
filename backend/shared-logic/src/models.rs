@@ -138,21 +138,11 @@ mod tests {
 
     #[test]
     fn channel_ordering_matches_spec() {
-        for i in 0..NUM_EEG {
-            assert_eq!(
-                DEFAULT_CHANNEL_TYPES[i],
-                ChannelType::Eeg,
-                "index {} should be EEG",
-                i
-            );
+        for (i, ch_type) in DEFAULT_CHANNEL_TYPES.iter().enumerate().take(NUM_EEG) {
+            assert_eq!(*ch_type, ChannelType::Eeg, "index {} should be EEG", i);
         }
-        for i in NUM_EEG..NUM_CHANNELS {
-            assert_eq!(
-                DEFAULT_CHANNEL_TYPES[i],
-                ChannelType::Emg,
-                "index {} should be EMG",
-                i
-            );
+        for (i, ch_type) in DEFAULT_CHANNEL_TYPES.iter().enumerate().skip(NUM_EEG) {
+            assert_eq!(*ch_type, ChannelType::Emg, "index {} should be EMG", i);
         }
     }
 

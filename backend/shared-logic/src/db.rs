@@ -632,7 +632,7 @@ pub async fn import_eeg_data_from_csv(
             .with_timezone(&Utc);
         timestamps.push(time);
 
-        for ch_idx in 0..NUM_CHANNELS {
+        for (ch_idx, signal) in signals.iter_mut().enumerate() {
             let field_idx = ch_idx + 1;
             let value = record
                 .get(field_idx)
@@ -641,7 +641,7 @@ pub async fn import_eeg_data_from_csv(
                 .map_err(|e| {
                     Error::Protocol(format!("Invalid channel{} value: {}", ch_idx + 1, e))
                 })?;
-            signals[ch_idx].push(value);
+            signal.push(value);
         }
     }
 
