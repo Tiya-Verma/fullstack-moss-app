@@ -1,6 +1,13 @@
 'use client';
 
-import React, { createContext, useContext, useEffect, useRef, useCallback, ReactNode } from 'react';
+import React, {
+    createContext,
+    useContext,
+    useEffect,
+    useRef,
+    useCallback,
+    ReactNode,
+} from 'react';
 import { useGlobalContext } from './GlobalContext';
 import { PipelinePayload } from '@/lib/pipeline';
 
@@ -18,9 +25,11 @@ type WebSocketContextType = {
     sendPipelinePayload: (payload: PipelinePayload) => void;
 };
 
-const WebSocketContext = createContext<WebSocketContextType | undefined>(undefined);
+const WebSocketContext = createContext<WebSocketContextType | undefined>(
+    undefined
+);
 
-function formatTimestamp(raw: any): string {
+function formatTimestamp(raw: unknown): string {
     const s = String(raw);
     // ISO 8601 with T: "2026-03-11T03:55:22.715574979Z"
     if (s.includes('T')) return s.slice(11, 23);
@@ -30,11 +39,16 @@ function formatTimestamp(raw: any): string {
     return s;
 }
 
-function normalizeBatch(batch: any): DataPoint[] {
-    return batch.timestamps.map((time: any, i: number) => ({
+interface WebSocketBatch {
+    timestamps: unknown[];
+    signals: unknown[][];
+}
+
+function normalizeBatch(batch: WebSocketBatch): DataPoint[] {
+    return batch.timestamps.map((time: unknown, i: number) => ({
         time: formatTimestamp(time),
         rawTime: String(time),
-        channels: batch.signals.map((ch: number[]) => ch[i]),
+        channels: batch.signals.map((ch) => (ch as number[])[i]),
     }));
 }
 
@@ -62,11 +76,16 @@ export function WebSocketProvider({ children }: { children: ReactNode }) {
     // Manage WebSocket lifecycle
     useEffect(() => {
         if (!dataStreaming) {
-            if (wsRef.current?.readyState === WebSocket.OPEN && !isClosingGracefullyRef.current) {
+            if (
+                wsRef.current?.readyState === WebSocket.OPEN &&
+                !isClosingGracefullyRef.current
+            ) {
                 isClosingGracefullyRef.current = true;
                 wsRef.current.send('clientClosing');
                 closingTimeoutRef.current = setTimeout(() => {
-                    console.warn('Timeout: no confirmed closing received. Forcing close.');
+                    console.warn(
+                        'Timeout: no confirmed closing received. Forcing close.'
+                    );
                     wsRef.current?.close();
                     isClosingGracefullyRef.current = false;
                 }, 5000);
@@ -75,7 +94,8 @@ export function WebSocketProvider({ children }: { children: ReactNode }) {
         }
 
         if (!activeSessionId) return;
-        if (wsRef.current && wsRef.current.readyState !== WebSocket.CLOSED) return;
+        if (wsRef.current && wsRef.current.readyState !== WebSocket.CLOSED)
+            return;
 
         console.log('Opening WebSocket connection...');
         const ws = new WebSocket('ws://localhost:8080');
@@ -85,7 +105,10 @@ export function WebSocketProvider({ children }: { children: ReactNode }) {
             console.log('WebSocket connection opened.');
             if (pipelinePayloadRef.current) {
                 ws.send(JSON.stringify(pipelinePayloadRef.current));
-                console.log('Sent pipeline payload on open:', pipelinePayloadRef.current);
+                console.log(
+                    'Sent pipeline payload on open:',
+                    pipelinePayloadRef.current
+                );
             }
         };
 
@@ -93,7 +116,8 @@ export function WebSocketProvider({ children }: { children: ReactNode }) {
             const message = event.data;
             if (message === 'confirmed closing') {
                 console.log("Received 'confirmed closing' from server.");
-                if (closingTimeoutRef.current) clearTimeout(closingTimeoutRef.current);
+                if (closingTimeoutRef.current)
+                    clearTimeout(closingTimeoutRef.current);
                 ws.close();
                 isClosingGracefullyRef.current = false;
             } else {
@@ -107,19 +131,28 @@ export function WebSocketProvider({ children }: { children: ReactNode }) {
         };
 
         ws.onclose = (event) => {
-            console.log('WebSocket connection closed:', event.code, event.reason);
+            console.log(
+                'WebSocket connection closed:',
+                event.code,
+                event.reason
+            );
             wsRef.current = null;
             isClosingGracefullyRef.current = false;
         };
 
         ws.onerror = () => {
-            if (closingTimeoutRef.current) clearTimeout(closingTimeoutRef.current);
+            if (closingTimeoutRef.current)
+                clearTimeout(closingTimeoutRef.current);
             isClosingGracefullyRef.current = false;
         };
 
         return () => {
-            if (closingTimeoutRef.current) clearTimeout(closingTimeoutRef.current);
-            if (ws.readyState === WebSocket.OPEN && !isClosingGracefullyRef.current) {
+            if (closingTimeoutRef.current)
+                clearTimeout(closingTimeoutRef.current);
+            if (
+                ws.readyState === WebSocket.OPEN &&
+                !isClosingGracefullyRef.current
+            ) {
                 ws.send('clientClosing');
                 closingTimeoutRef.current = setTimeout(() => ws.close(), 5000);
             } else if (ws.readyState !== WebSocket.CLOSED) {
@@ -138,6 +171,9 @@ export function WebSocketProvider({ children }: { children: ReactNode }) {
 
 export function useWebSocketContext() {
     const ctx = useContext(WebSocketContext);
-    if (!ctx) throw new Error('useWebSocketContext must be used within a WebSocketProvider');
+    if (!ctx)
+        throw new Error(
+            'useWebSocketContext must be used within a WebSocketProvider'
+        );
     return ctx;
 }

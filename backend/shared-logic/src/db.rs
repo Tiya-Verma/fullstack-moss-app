@@ -1,22 +1,19 @@
-use serde_json::{Value};
-use sqlx::{
-    postgres::PgPoolOptions,
-    Error, PgPool,
+use super::models::{
+    EegDataRow, FrontendState, NewTimeLabel, NewUser, Session, TimeLabel, TimeSeriesData,
+    UpdateUser, User, NUM_CHANNELS,
 };
-use tokio::time::{self, Duration};
-use log::{info, error, warn};
-use chrono::{Date, DateTime, Utc};
-use dotenvy::dotenv;
-use super::models::{User, NewUser, TimeSeriesData, UpdateUser, Session, FrontendState, TimeLabel, NewTimeLabel, EegDataRow, NUM_CHANNELS};
-use crate::{lsl::EEGDataPacket};
-use once_cell::sync::OnceCell;
-use std::sync::Arc;
-use serde::{Serialize, Deserialize};
+use crate::lsl::EEGDataPacket;
 use argon2::password_hash::SaltString;
+use argon2::{password_hash::PasswordHasher, Argon2};
+use chrono::{DateTime, Utc};
+use dotenvy::dotenv;
+use log::{error, info, warn};
+use once_cell::sync::OnceCell;
 use rand_core::OsRng;
-use argon2::{Argon2, password_hash::{PasswordHasher, PasswordHash, PasswordVerifier}};
-
-
+use serde_json::Value;
+use sqlx::{postgres::PgPoolOptions, Error, PgPool};
+use std::sync::Arc;
+use tokio::time::{self, Duration};
 
 pub static DB_POOL: OnceCell<Arc<PgPool>> = OnceCell::new();
 
@@ -42,7 +39,7 @@ pub async fn initialize_connection() -> Result<DbClient, Error> {
             .await
         {
             Ok(pool) => {
-                 let arc_pool = Arc::new(pool);
+                let arc_pool = Arc::new(pool);
 
                 // Set the global DB_POOL once
                 if DB_POOL.set(arc_pool.clone()).is_err() {
@@ -52,7 +49,12 @@ pub async fn initialize_connection() -> Result<DbClient, Error> {
                 return Ok(arc_pool);
             }
             Err(e) => {
-                error!("Failed to connect to database (attempt {}/{})!: {}", attempts + 1, max_attempts, e);
+                error!(
+                    "Failed to connect to database (attempt {}/{})!: {}",
+                    attempts + 1,
+                    max_attempts,
+                    e
+                );
                 attempts += 1;
                 if attempts >= max_attempts {
                     return Err(e);
@@ -69,7 +71,11 @@ pub fn get_db_client() -> DbClient {
     DB_POOL.get().expect("DB not initialized").clone()
 }
 
-pub async fn add_user(client: &DbClient, new_user: NewUser, password_hash: String) -> Result<User, Error> {
+pub async fn add_user(
+    client: &DbClient,
+    new_user: NewUser,
+    password_hash: String,
+) -> Result<User, Error> {
     info!("Adding user: {} ({})", new_user.username, new_user.email);
     let user = sqlx::query_as!(
         User,
@@ -103,7 +109,6 @@ pub async fn get_user_by_email(client: &DbClient, email: &str) -> Result<User, E
     .await
 }
 
-
 /// Insert a new record into testtime_series using chrono's DateTime<Utc>.
 pub async fn add_testtime_series_data(
     client: &DbClient,
@@ -125,7 +130,6 @@ pub async fn add_testtime_series_data(
     Ok(data)
 }
 
-
 /// Retrieve records from testtime_series.
 pub async fn get_testtime_series_data(client: &DbClient) -> Result<Vec<TimeSeriesData>, Error> {
     info!("Retrieving time series data...");
@@ -140,11 +144,14 @@ pub async fn get_testtime_series_data(client: &DbClient) -> Result<Vec<TimeSerie
 }
 
 /// Insert a batch of records into eeg_data.
-pub async fn insert_batch_eeg(client: &DbClient, session_id: i32, packet: &EEGDataPacket) -> Result<(), sqlx::Error> {
-
+pub async fn insert_batch_eeg(
+    client: &DbClient,
+    session_id: i32,
+    packet: &EEGDataPacket,
+) -> Result<(), sqlx::Error> {
     let n_samples = packet.timestamps.len();
 
-      // Add validation to prevent empty inserts
+    // Add validation to prevent empty inserts
     if n_samples == 0 {
         info!("Skipping insert - packet has no samples");
         return Ok(());
@@ -178,9 +185,11 @@ pub async fn insert_batch_eeg(client: &DbClient, session_id: i32, packet: &EEGDa
 
     query_builder.push(" ON CONFLICT (session_id, time) DO NOTHING");
     query_builder.build().execute(&**client).await?;
-    info!("EEG packet inserted successfully - {} data", packet.timestamps.len());
+    info!(
+        "EEG packet inserted successfully - {} data",
+        packet.timestamps.len()
+    );
     Ok(())
-
 }
 
 /// Update a user by id.
@@ -298,7 +307,7 @@ pub async fn update_user(
 }
 
 /// Delete a user by id.
-// 
+//
 //  Returns Ok(()) if successful.
 pub async fn delete_user(client: &DbClient, user_id: i32) -> Result<(), Error> {
     info!("Deleting user id {}", user_id);
@@ -331,22 +340,21 @@ pub async fn create_session(client: &DbClient, name: String) -> Result<Session, 
     .fetch_one(&**client)
     .await?;
     info!("Session created successfully: {:?}", session);
-    
-    return Ok(session);
+
+    Ok(session)
 }
 
 /// Get all sessions
 //
 /// Returns a vector of Sessions on success.
-pub async fn get_sessions(client: &DbClient) -> Result<Vec<Session>, Error>
-{
+pub async fn get_sessions(client: &DbClient) -> Result<Vec<Session>, Error> {
     info!("Retrieving sessions...");
     let sessions = sqlx::query_as!(Session, "SELECT id, name FROM sessions")
         .fetch_all(&**client)
         .await?;
     info!("Retrieved {} sessions.", sessions.len());
 
-    return Ok(sessions);
+    Ok(sessions)
 }
 
 /// Delete a session by id.
@@ -366,7 +374,7 @@ pub async fn delete_session(client: &DbClient, session_id: i32) -> Result<(), Er
         info!("Session id {} deleted", session_id);
     }
 
-    return Ok(());
+    Ok(())
 }
 
 /// Create a frontend_state entry tied to the given session id, which stores
@@ -374,7 +382,11 @@ pub async fn delete_session(client: &DbClient, session_id: i32) -> Result<(), Er
 /// update it with the new data.
 ///
 /// Returns the created FrontendState on success.
-pub async fn upsert_frontend_state(client: &DbClient, session_id: i32, data: serde_json::Value) -> Result<FrontendState, Error> {
+pub async fn upsert_frontend_state(
+    client: &DbClient,
+    session_id: i32,
+    data: serde_json::Value,
+) -> Result<FrontendState, Error> {
     info!("Creating frontend state for session id {}", session_id);
 
     let state = sqlx::query_as!(
@@ -390,13 +402,16 @@ pub async fn upsert_frontend_state(client: &DbClient, session_id: i32, data: ser
 
     info!("Frontend state created/updated successfully: {:?}", state);
 
-    return Ok(state);
+    Ok(state)
 }
 
 /// Get the JSON frontend state associated with the given session id.
 ///
 /// Returns the JSON value on success.
-pub async fn get_frontend_state(client: &DbClient, session_id: i32) -> Result<Option<Value>, Error> {
+pub async fn get_frontend_state(
+    client: &DbClient,
+    session_id: i32,
+) -> Result<Option<Value>, Error> {
     info!("Retrieving frontend state for session id {}", session_id);
 
     let state = sqlx::query_as!(
@@ -409,21 +424,25 @@ pub async fn get_frontend_state(client: &DbClient, session_id: i32) -> Result<Op
 
     info!("Retrieved frontend state successfully: {:?}", state);
 
-    return Ok(state.map(|s| s.data));
+    Ok(state.map(|s| s.data))
 }
 
 /// Insert a batch of time labels for a given session.
 ///
 /// Takes a session_id and a list of labels (each with a timestamp and label string),
 /// and inserts them all into the time_labels table in a single query.
-pub async fn insert_time_labels(client: &DbClient, session_id: i32, labels: Vec<NewTimeLabel>) -> Result<(), sqlx::Error> {
+pub async fn insert_time_labels(
+    client: &DbClient,
+    session_id: i32,
+    labels: Vec<NewTimeLabel>,
+) -> Result<(), sqlx::Error> {
     if labels.is_empty() {
         info!("Skipping insert - no labels to insert");
         return Ok(());
     }
 
     let mut query_builder = sqlx::QueryBuilder::new(
-        "INSERT INTO time_labels (session_id, start_timestamp, end_timestamp, label, color) "
+        "INSERT INTO time_labels (session_id, start_timestamp, end_timestamp, label, color) ",
     );
 
     query_builder.push_values(labels.iter(), |mut b, label| {
@@ -435,7 +454,11 @@ pub async fn insert_time_labels(client: &DbClient, session_id: i32, labels: Vec<
     });
 
     query_builder.build().execute(&**client).await?;
-    info!("Inserted {} time labels for session {}", labels.len(), session_id);
+    info!(
+        "Inserted {} time labels for session {}",
+        labels.len(),
+        session_id
+    );
     Ok(())
 }
 
@@ -443,8 +466,16 @@ pub async fn insert_time_labels(client: &DbClient, session_id: i32, labels: Vec<
 ///
 /// Returns all rows from eeg_data where session_id matches and time is between
 /// start and end (inclusive), ordered by time.
-pub async fn get_eeg_data_by_range(client: &DbClient, session_id: i32, start: DateTime<Utc>, end: DateTime<Utc>) -> Result<Vec<EegDataRow>, Error> {
-    info!("Retrieving EEG data for session {} from {} to {}", session_id, start, end);
+pub async fn get_eeg_data_by_range(
+    client: &DbClient,
+    session_id: i32,
+    start: DateTime<Utc>,
+    end: DateTime<Utc>,
+) -> Result<Vec<EegDataRow>, Error> {
+    info!(
+        "Retrieving EEG data for session {} from {} to {}",
+        session_id, start, end
+    );
 
     let rows = sqlx::query!(
         "SELECT time, channels FROM eeg_data WHERE session_id = $1 AND time >= $2 AND time <= $3 ORDER BY time",
@@ -471,8 +502,16 @@ pub async fn get_eeg_data_by_range(client: &DbClient, session_id: i32, start: Da
 ///
 /// Returns all rows from time_labels where session_id matches and timestamp is between
 /// start and end (inclusive), ordered by timestamp.
-pub async fn get_time_labels_by_range(client: &DbClient, session_id: i32, start: DateTime<Utc>, end: DateTime<Utc>) -> Result<Vec<TimeLabel>, Error> {
-    info!("Retrieving time labels for session {} from {} to {}", session_id, start, end);
+pub async fn get_time_labels_by_range(
+    client: &DbClient,
+    session_id: i32,
+    start: DateTime<Utc>,
+    end: DateTime<Utc>,
+) -> Result<Vec<TimeLabel>, Error> {
+    info!(
+        "Retrieving time labels for session {} from {} to {}",
+        session_id, start, end
+    );
 
     let labels = sqlx::query_as!(
         TimeLabel,
@@ -489,10 +528,19 @@ pub async fn get_time_labels_by_range(client: &DbClient, session_id: i32, start:
 }
 
 /// Export the EEG data for a given session ID and time range as a CSV string.
-/// 
+///
 /// Returns the CSV data on success.
-pub async fn export_eeg_data_as_csv(client: &DbClient, session_id: i32, start_time: DateTime<Utc>, end_time: DateTime<Utc>, include_header: bool) -> Result<String, Error> {
-    info!("Exporting EEG data for session id {} from {} to {}", session_id, start_time, end_time);
+pub async fn export_eeg_data_as_csv(
+    client: &DbClient,
+    session_id: i32,
+    start_time: DateTime<Utc>,
+    end_time: DateTime<Utc>,
+    include_header: bool,
+) -> Result<String, Error> {
+    info!(
+        "Exporting EEG data for session id {} from {} to {}",
+        session_id, start_time, end_time
+    );
 
     // get the data from the database
     let data = sqlx::query!(
@@ -534,12 +582,12 @@ pub async fn export_eeg_data_as_csv(client: &DbClient, session_id: i32, start_ti
             .map_err(|e| Error::Protocol(e.to_string()))?;
     }
 
-    let byte_stream = writer.into_inner()
+    let byte_stream = writer
+        .into_inner()
         .map_err(|e| Error::Protocol(e.to_string()))?;
 
     // now, we convert the CSV data to a string and return it
-    let csv_data = String::from_utf8(byte_stream)
-        .map_err(|e| Error::Protocol(e.to_string()))?;
+    let csv_data = String::from_utf8(byte_stream).map_err(|e| Error::Protocol(e.to_string()))?;
 
     Ok(csv_data)
 }
@@ -548,7 +596,11 @@ pub async fn export_eeg_data_as_csv(client: &DbClient, session_id: i32, start_ti
 /// to have columns: "time", "channel1", ..., "channel12" (in that order).
 ///
 /// Returns Ok(()) on success.
-pub async fn import_eeg_data_from_csv(client: &DbClient, session_id: i32, csv_bytes: &[u8]) ->  Result<(), Error> {
+pub async fn import_eeg_data_from_csv(
+    client: &DbClient,
+    session_id: i32,
+    csv_bytes: &[u8],
+) -> Result<(), Error> {
     info!("Importing EEG data for session id {} from CSV", session_id);
 
     let mut reader = csv::ReaderBuilder::new()
@@ -577,7 +629,11 @@ pub async fn import_eeg_data_from_csv(client: &DbClient, session_id: i32, csv_by
         }
     }
 
-    let eeg_rows = EEGDataPacket { timestamps, signals };
+    let eeg_rows = EEGDataPacket {
+        timestamps,
+        signals,
+        ml_result: None,
+    };
 
     insert_batch_eeg(client, session_id, &eeg_rows).await?;
 
@@ -585,9 +641,12 @@ pub async fn import_eeg_data_from_csv(client: &DbClient, session_id: i32, csv_by
 }
 
 /// Helper function for eeg data to find the earliest timestamp for a given session
-/// 
+///
 /// Returns the earliest timestamp on success.
-pub async fn get_earliest_eeg_timestamp(client: &DbClient, session_id: i32) -> Result<Option<DateTime<Utc>>, Error> {
+pub async fn get_earliest_eeg_timestamp(
+    client: &DbClient,
+    session_id: i32,
+) -> Result<Option<DateTime<Utc>>, Error> {
     let row = sqlx::query!(
         "SELECT MIN(time) as earliest_time FROM eeg_data WHERE session_id = $1",
         session_id
