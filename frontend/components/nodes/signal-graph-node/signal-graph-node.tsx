@@ -44,10 +44,18 @@ function parseEEG(csvContent: string): SignalDataPoint[] {
         if (timeColIdx == -1) return [];
 
         // find channel columns by exact channel number patterns
-        const signalIndices = Array.from({ length: NUM_CHANNELS }, (_, chNum) => {
-            const patterns = [`ch${chNum + 1}`, `channel${chNum + 1}`, `signal${chNum + 1}`, `signal_${chNum + 1}`];
-            return header.findIndex((h) => patterns.includes(h));
-        });
+        const signalIndices = Array.from(
+            { length: NUM_CHANNELS },
+            (_, chNum) => {
+                const patterns = [
+                    `ch${chNum + 1}`,
+                    `channel${chNum + 1}`,
+                    `signal${chNum + 1}`,
+                    `signal_${chNum + 1}`,
+                ];
+                return header.findIndex((h) => patterns.includes(h));
+            }
+        );
 
         if (signalIndices.includes(-1)) return [];
 

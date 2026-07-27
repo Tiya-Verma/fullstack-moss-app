@@ -85,14 +85,22 @@ pub enum ChannelType {
 }
 
 pub const DEFAULT_CHANNEL_LABELS: [&str; NUM_CHANNELS] = [
-    "EEG1", "EEG2", "EEG3", "EEG4", "EEG5", "EEG6", "EEG7", "EEG8",
-    "EMG1", "EMG2", "EMG3", "EMG4",
+    "EEG1", "EEG2", "EEG3", "EEG4", "EEG5", "EEG6", "EEG7", "EEG8", "EMG1", "EMG2", "EMG3", "EMG4",
 ];
 
 pub const DEFAULT_CHANNEL_TYPES: [ChannelType; NUM_CHANNELS] = [
-    ChannelType::Eeg, ChannelType::Eeg, ChannelType::Eeg, ChannelType::Eeg,
-    ChannelType::Eeg, ChannelType::Eeg, ChannelType::Eeg, ChannelType::Eeg,
-    ChannelType::Emg, ChannelType::Emg, ChannelType::Emg, ChannelType::Emg,
+    ChannelType::Eeg,
+    ChannelType::Eeg,
+    ChannelType::Eeg,
+    ChannelType::Eeg,
+    ChannelType::Eeg,
+    ChannelType::Eeg,
+    ChannelType::Eeg,
+    ChannelType::Eeg,
+    ChannelType::Emg,
+    ChannelType::Emg,
+    ChannelType::Emg,
+    ChannelType::Emg,
 ];
 
 // Row of EEG data coming OUT of the DB. `channels` is length NUM_CHANNELS,
@@ -131,10 +139,20 @@ mod tests {
     #[test]
     fn channel_ordering_matches_spec() {
         for i in 0..NUM_EEG {
-            assert_eq!(DEFAULT_CHANNEL_TYPES[i], ChannelType::Eeg, "index {} should be EEG", i);
+            assert_eq!(
+                DEFAULT_CHANNEL_TYPES[i],
+                ChannelType::Eeg,
+                "index {} should be EEG",
+                i
+            );
         }
         for i in NUM_EEG..NUM_CHANNELS {
-            assert_eq!(DEFAULT_CHANNEL_TYPES[i], ChannelType::Emg, "index {} should be EMG", i);
+            assert_eq!(
+                DEFAULT_CHANNEL_TYPES[i],
+                ChannelType::Emg,
+                "index {} should be EMG",
+                i
+            );
         }
     }
 

@@ -20,7 +20,9 @@ pub static DB_POOL: OnceCell<Arc<PgPool>> = OnceCell::new();
 pub type DbClient = Arc<PgPool>;
 
 fn csv_channel_headers() -> Vec<String> {
-    (1..=NUM_CHANNELS).map(|i| format!("channel{}", i)).collect()
+    (1..=NUM_CHANNELS)
+        .map(|i| format!("channel{}", i))
+        .collect()
 }
 
 pub async fn initialize_connection() -> Result<DbClient, Error> {
@@ -165,22 +167,25 @@ pub async fn insert_batch_eeg(
         )));
     }
 
-    let mut query_builder = sqlx::QueryBuilder::new(
-        "INSERT INTO eeg_data (session_id, time, channels) "
-    );
+    let mut query_builder =
+        sqlx::QueryBuilder::new("INSERT INTO eeg_data (session_id, time, channels) ");
 
     query_builder.push_values(
         (0..n_samples).map(|sample_idx| {
             let channels: Vec<i32> = (0..NUM_CHANNELS)
                 .map(|ch_idx| packet.signals[ch_idx][sample_idx] as i32)
                 .collect();
-            (session_id, &packet.timestamps[sample_idx], serde_json::json!(channels))
+            (
+                session_id,
+                &packet.timestamps[sample_idx],
+                serde_json::json!(channels),
+            )
         }),
         |mut b, (session_id, timestamp, channels_json)| {
             b.push_bind(session_id)
                 .push_bind(timestamp)
                 .push_bind(channels_json);
-        }
+        },
     );
 
     query_builder.push(" ON CONFLICT (session_id, time) DO NOTHING");
@@ -486,11 +491,15 @@ pub async fn get_eeg_data_by_range(
     .fetch_all(&**client)
     .await?;
 
-    let data = rows.into_iter()
+    let data = rows
+        .into_iter()
         .map(|row| {
             let channels: Vec<i32> = serde_json::from_value(row.channels)
                 .map_err(|e| Error::Protocol(format!("Invalid channels JSON: {}", e)))?;
-            Ok(EegDataRow { time: row.time, channels })
+            Ok(EegDataRow {
+                time: row.time,
+                channels,
+            })
         })
         .collect::<Result<Vec<_>, Error>>()?;
 
@@ -561,7 +570,8 @@ pub async fn export_eeg_data_as_csv(
     if include_header {
         let mut header = vec!["time".to_string()];
         header.extend(csv_channel_headers());
-        writer.write_record(&header)
+        writer
+            .write_record(&header)
             .map_err(|e| Error::Protocol(e.to_string()))?;
     }
 
@@ -578,7 +588,8 @@ pub async fn export_eeg_data_as_csv(
         let mut record: Vec<String> = Vec::with_capacity(NUM_CHANNELS + 1);
         record.push(row.time.to_rfc3339());
         record.extend(channels.iter().map(|v| v.to_string()));
-        writer.write_record(&record)
+        writer
+            .write_record(&record)
             .map_err(|e| Error::Protocol(e.to_string()))?;
     }
 
@@ -613,7 +624,9 @@ pub async fn import_eeg_data_from_csv(
     for result in reader.records() {
         let record = result.map_err(|e| Error::Protocol(e.to_string()))?;
 
-        let time_str = record.get(0).ok_or_else(|| Error::Protocol("Missing time field".to_string()))?;
+        let time_str = record
+            .get(0)
+            .ok_or_else(|| Error::Protocol("Missing time field".to_string()))?;
         let time = DateTime::parse_from_rfc3339(time_str)
             .map_err(|e| Error::Protocol(format!("Invalid time format: {}", e)))?
             .with_timezone(&Utc);
@@ -621,10 +634,13 @@ pub async fn import_eeg_data_from_csv(
 
         for ch_idx in 0..NUM_CHANNELS {
             let field_idx = ch_idx + 1;
-            let value = record.get(field_idx)
+            let value = record
+                .get(field_idx)
                 .ok_or_else(|| Error::Protocol(format!("Missing channel{} field", ch_idx + 1)))?
                 .parse::<f64>()
-                .map_err(|e| Error::Protocol(format!("Invalid channel{} value: {}", ch_idx + 1, e)))?;
+                .map_err(|e| {
+                    Error::Protocol(format!("Invalid channel{} value: {}", ch_idx + 1, e))
+                })?;
             signals[ch_idx].push(value);
         }
     }

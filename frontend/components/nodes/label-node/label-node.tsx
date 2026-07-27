@@ -405,34 +405,49 @@ export default function LabelNode({ id }: LabelNodeProps) {
         setViewMode('timeline');
     };
 
-    const handleFetchLabelData = React.useCallback(async (start: string, end: string): Promise<LabelGraphPoint[]> => {
-        if (activeSessionId === null) return [];
-        try {
-            const csv = await exportEEGData(activeSessionId, { start_time: start, end_time: end });
-            const lines = csv.trim().split('\n');
-            if (lines.length < 2) return [];
-            const header = lines[0].split(',').map((h) => h.trim().toLowerCase());
-            const timeIdx = header.findIndex((h) => h.includes('time') || h === 'timestamp');
-            const chIdxs = Array.from({ length: NUM_CHANNELS }, (_, n) => {
-                const pats = [`ch${n + 1}`, `channel${n + 1}`];
-                return header.findIndex((h) => pats.includes(h));
-            });
-            if (timeIdx === -1 || chIdxs.includes(-1)) return [];
-            return lines.slice(1).flatMap((line, i) => {
-                const cols = line.trim().split(',').map((c) => c.trim());
-                if (!cols[timeIdx]) return [];
-                const vals = chIdxs.map((idx) => parseFloat(cols[idx]));
-                if (vals.some((v) => isNaN(v))) return [];
-                return [{
-                    id: `fetched-${i}`,
-                    time: cols[timeIdx],
-                    channels: vals,
-                }];
-            });
-        } catch {
-            return [];
-        }
-    }, [activeSessionId]);
+    const handleFetchLabelData = React.useCallback(
+        async (start: string, end: string): Promise<LabelGraphPoint[]> => {
+            if (activeSessionId === null) return [];
+            try {
+                const csv = await exportEEGData(activeSessionId, {
+                    start_time: start,
+                    end_time: end,
+                });
+                const lines = csv.trim().split('\n');
+                if (lines.length < 2) return [];
+                const header = lines[0]
+                    .split(',')
+                    .map((h) => h.trim().toLowerCase());
+                const timeIdx = header.findIndex(
+                    (h) => h.includes('time') || h === 'timestamp'
+                );
+                const chIdxs = Array.from({ length: NUM_CHANNELS }, (_, n) => {
+                    const pats = [`ch${n + 1}`, `channel${n + 1}`];
+                    return header.findIndex((h) => pats.includes(h));
+                });
+                if (timeIdx === -1 || chIdxs.includes(-1)) return [];
+                return lines.slice(1).flatMap((line, i) => {
+                    const cols = line
+                        .trim()
+                        .split(',')
+                        .map((c) => c.trim());
+                    if (!cols[timeIdx]) return [];
+                    const vals = chIdxs.map((idx) => parseFloat(cols[idx]));
+                    if (vals.some((v) => isNaN(v))) return [];
+                    return [
+                        {
+                            id: `fetched-${i}`,
+                            time: cols[timeIdx],
+                            channels: vals,
+                        },
+                    ];
+                });
+            } catch {
+                return [];
+            }
+        },
+        [activeSessionId]
+    );
 
     const timelineRows = React.useMemo<TimelineLabelRow[]>(() => {
         const completedRows: TimelineLabelRow[] = labeledMoments.map(

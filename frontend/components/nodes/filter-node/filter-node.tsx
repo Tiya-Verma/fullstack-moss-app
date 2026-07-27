@@ -41,50 +41,50 @@ export default function FilterNode({ id, data }: FilterNodeProps) {
 
     const buildConfig = React.useCallback((): FilterConfig => {
         if (!isConnected) {
-          return {
-            apply_bandpass: false,
-            use_iir: false,
-            l_freq: null,
-            h_freq: null,
-            downsample_factor: null,
-            sfreq: 256,
-            n_channels: NUM_CHANNELS,
-          }
+            return {
+                apply_bandpass: false,
+                use_iir: false,
+                l_freq: null,
+                h_freq: null,
+                downsample_factor: null,
+                sfreq: 256,
+                n_channels: NUM_CHANNELS,
+            };
         }
 
         switch (selectedFilter) {
-          case 'lowpass':
-            return {
-              apply_bandpass: true,
-              use_iir: false,
-              l_freq: null,
-              h_freq: highCutoff,
-              downsample_factor: null,
-              sfreq: 256,
-              n_channels: NUM_CHANNELS,
-            }
-      
-          case 'highpass':
-            return {
-              apply_bandpass: true,
-              use_iir: false,
-              l_freq: lowCutoff,
-              h_freq: null,
-              downsample_factor: null,
-              sfreq: 256,
-              n_channels: NUM_CHANNELS,
-            }
-      
-          case 'bandpass':
-            return {
-              apply_bandpass: true,
-              use_iir: false,
-              l_freq: lowCutoff,
-              h_freq: highCutoff,
-              downsample_factor: null,
-              sfreq: 256,
-              n_channels: NUM_CHANNELS,
-            }
+            case 'lowpass':
+                return {
+                    apply_bandpass: true,
+                    use_iir: false,
+                    l_freq: null,
+                    h_freq: highCutoff,
+                    downsample_factor: null,
+                    sfreq: 256,
+                    n_channels: NUM_CHANNELS,
+                };
+
+            case 'highpass':
+                return {
+                    apply_bandpass: true,
+                    use_iir: false,
+                    l_freq: lowCutoff,
+                    h_freq: null,
+                    downsample_factor: null,
+                    sfreq: 256,
+                    n_channels: NUM_CHANNELS,
+                };
+
+            case 'bandpass':
+                return {
+                    apply_bandpass: true,
+                    use_iir: false,
+                    l_freq: lowCutoff,
+                    h_freq: highCutoff,
+                    downsample_factor: null,
+                    sfreq: 256,
+                    n_channels: NUM_CHANNELS,
+                };
 
             default:
                 throw new Error(`Unhandled filter type: ${selectedFilter}`);

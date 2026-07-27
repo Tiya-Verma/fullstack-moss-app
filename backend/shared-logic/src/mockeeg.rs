@@ -1,15 +1,17 @@
+use log::info;
 use lsl::{ChannelFormat, ExPushable, StreamInfo, StreamOutlet};
 use rand::Rng;
 use std::{thread, time::Duration, time::Instant};
 use tokio_util::sync::CancellationToken;
-use log::info;
 
 use crate::models::{NUM_CHANNELS, NUM_EEG};
 
 const SAMPLING_RATE_HZ: f32 = 256.0;
 const SAMPLE_PERIOD_MS: u64 = 4;
 
-pub async fn generate_mock_data(cancel_token: CancellationToken) -> Result<(), Box<dyn std::error::Error>> {
+pub async fn generate_mock_data(
+    cancel_token: CancellationToken,
+) -> Result<(), Box<dyn std::error::Error>> {
     let stream_info = StreamInfo::new(
         "MyStream",
         "EEG",
@@ -21,7 +23,10 @@ pub async fn generate_mock_data(cancel_token: CancellationToken) -> Result<(), B
 
     let outlet = StreamOutlet::new(&stream_info, 0, 360)?;
 
-    println!("Stream created ({} channels). Sending data...", NUM_CHANNELS);
+    println!(
+        "Stream created ({} channels). Sending data...",
+        NUM_CHANNELS
+    );
 
     let start = Instant::now();
 
@@ -62,7 +67,9 @@ fn build_sample(t: f32) -> Vec<f32> {
     for ch in 0..(NUM_CHANNELS - NUM_EEG) {
         // EMG: higher-amplitude, higher-frequency bursts modulated by a slow envelope.
         let burst_freq = 60.0 + ch as f32 * 15.0;
-        let envelope = (2.0 * std::f32::consts::PI * (0.5 + ch as f32 * 0.2) * t).sin().abs();
+        let envelope = (2.0 * std::f32::consts::PI * (0.5 + ch as f32 * 0.2) * t)
+            .sin()
+            .abs();
         let signal = 200.0 * envelope * (2.0 * std::f32::consts::PI * burst_freq * t).sin()
             + rng.gen_range(-20.0..20.0);
         sample.push(signal);

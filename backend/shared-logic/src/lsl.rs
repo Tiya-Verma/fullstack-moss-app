@@ -7,8 +7,8 @@ use serde::{Deserialize, Serialize};
 use tokio::sync::broadcast::Sender;
 use tokio_util::sync::CancellationToken;
 // use crate::signal_processing::signal_processor::SignalProcessor;
-use crate::pipeline::{Pipeline, PreprocessingConfig, WindowConfig};
 use crate::models::NUM_CHANNELS;
+use crate::pipeline::{Pipeline, PreprocessingConfig, WindowConfig};
 use crate::signal_processing::pipeline_gateway::{PipelineGateway, PipelineOutput};
 
 pub type ProcessingConfig = PreprocessingConfig;
