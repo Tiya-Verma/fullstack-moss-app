@@ -57,7 +57,7 @@ pub async fn receive_eeg_with_config(
     //     .unwrap_or_else(|_| "../shared-logic/src/signal_processing/signalProcessing.py".to_string());
 
     let manager_script_path = std::env::var("PIPELINE_MANAGER_SCRIPT").unwrap_or_else(|_| {
-        "../shared-logic/src/signal_processing/moss/mock_manager.py".to_string()
+        "/app/shared-logic/src/signal_processing/moss/mock_manager.py".to_string()
     });
 
     let result = tokio::task::spawn_blocking(move || {

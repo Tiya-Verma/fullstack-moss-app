@@ -28,7 +28,7 @@ COPY .sqlx ./.sqlx
 COPY shared-logic/src ./shared-logic/src
 
 # Copy patched lsl crate to override the broken crates.io version
-COPY lsl-patched ./lsl-patched
+# COPY lsl-patched ./lsl-patched
 
 # Copy migrations directory for the final image
 COPY migrations ./migrations
@@ -51,7 +51,8 @@ RUN cargo build --release --bin api-server && \
 # Copy Python requirements and install (cached separately from Rust deps)
 COPY api-server/python/requirements.txt ./api-server/python/
 RUN python3 -m venv /opt/venv && \
-    /opt/venv/bin/pip install --no-cache-dir -r ./api-server/python/requirements.txt
+    /opt/venv/bin/pip install --upgrade pip setuptools wheel && \
+    /opt/venv/bin/pip install --no-cache-dir -r ./api-server/python/requirements.txt --extra-index-url https://download.pytorch.org/whl/cpu
 
 ENV PATH="/opt/venv/bin:$PATH"
 

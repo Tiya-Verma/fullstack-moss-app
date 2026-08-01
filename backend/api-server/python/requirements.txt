@@ -1,2 +1,9 @@
-numpy
-# Add any other python dependencies here
+# Python dependencies used by the backend services.
+# Pin versions that are compatible with the Python runtime used in the containers.
+numpy<2
+scipy<1.14
+mne<1.27
+pandas<2.2
+einops
+scikit-learn<1.4
+torch
