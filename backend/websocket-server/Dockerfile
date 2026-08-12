@@ -28,9 +28,6 @@ COPY .sqlx ./.sqlx
 # Copy shared-logic source (it's a library used by both servers)
 COPY shared-logic/src ./shared-logic/src
 
-# Copy patched lsl crate to override the broken crates.io version
-COPY lsl-patched ./lsl-patched
-
 # Create dummy main.rs files for workspace members to cache dependencies
 # IMPORTANT: Use async main with tokio macro since the real code uses #[tokio::main]
 RUN mkdir -p websocket-server/src api-server/src && \
@@ -69,9 +66,16 @@ COPY --from=builder /app/backend/target/release/websocket-server ./websocket-ser
 
 COPY --from=builder /app/backend/shared-logic ./shared-logic
 
-RUN pip install --no-cache-dir numpy scipy mne pandas einops scikit-learn torch --index-url https://download.pytorch.org/whl/cpu
+# Copy the Python signal processing package used by the websocket pipeline gateway.
+COPY --from=builder /app/backend/shared-logic/src/signal_processing ./shared-logic/src/signal_processing
+
+COPY api-server/python/requirements.txt ./api-server/python/requirements.txt
+
+RUN python -m pip install --upgrade pip setuptools wheel && \
+    pip install --no-cache-dir -r ./api-server/python/requirements.txt --extra-index-url https://download.pytorch.org/whl/cpu
 
 ENV SIGNAL_PROCESSING_SCRIPT="/app/shared-logic/src/signal_processing/signalProcessing.py"
+ENV PIPELINE_MANAGER_SCRIPT="/app/shared-logic/src/signal_processing/moss/mock_manager.py"
 
 EXPOSE 8080
 CMD ["./websocket-server"]
