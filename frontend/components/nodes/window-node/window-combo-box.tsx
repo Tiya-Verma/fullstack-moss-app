@@ -127,7 +127,6 @@ function SizeSection({
 export default function ComboBox({
     windowSize,
     overlapSize,
-    selectedOption,
     setWindowSize,
     setOverlapSize,
     setSelectedOption,
