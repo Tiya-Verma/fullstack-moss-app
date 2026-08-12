@@ -100,7 +100,9 @@ function SizeSection({
                     <input
                         value={customInput}
                         onChange={(e) => {
-                            setCustomInput(e.target.value.replace(/[^\d]/g, ''));
+                            setCustomInput(
+                                e.target.value.replace(/[^\d]/g, '')
+                            );
                             setError('');
                         }}
                         onKeyDown={(e) => {
@@ -115,7 +117,10 @@ function SizeSection({
                     />
                 </div>
                 {error && (
-                    <div className="text-xs text-red-600 px-3 pt-1" role="alert">
+                    <div
+                        className="text-xs text-red-600 px-3 pt-1"
+                        role="alert"
+                    >
                         {error}
                     </div>
                 )}
